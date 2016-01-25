@@ -44,5 +44,13 @@ case of SwitchFactory, we know you should be inputting a directory.
 Finally two things should be noted. The first is that everytime a resource is used, the class instance that you input to 
 the switch factory with RegisterResource(resource, path) is deepcopied before being used. Secondly, the resource's CreateResponse
 method is called with a deferToThread call. Therefore you do not have to worry about your resource blocking the rest of the 
-server. The first thing mentioned here keeps the server itself stateless (as it should be), and the second keeps things flowing 
+server. The first thing mentioned here keeps the server itself stateless (as it should be), and the second keeps things flowing
 and allows you to create the response you want without having to worry about blocking the whole thing up.
+
+Directory:
+
+This Resource class is initiated the directory to serve content from (note '/root' will become '/root/').
+Then this class will, in its CreateResponse, method grab the rest of the input path beyond the part of the path it as 
+a resource is registered under (it adds a '/' to the end of self.path if self.path[-1] != '/' by the way) and tries to
+upload the file under the directory input on initiation with that relative address. If it finds it, it sends it 
+back, otherwise it sends a 404 not found (with a default 404 page)
