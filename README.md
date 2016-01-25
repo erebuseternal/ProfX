@@ -49,7 +49,7 @@ and allows you to create the response you want without having to worry about blo
 
 Directory:
 
-This Resource class is initiated the directory to serve content from (note '/root' will become '/root/').
+This Resource class is initiated with the directory to serve content from (note '/root' will become '/root/').
 Then this class will, in its CreateResponse, method grab the rest of the input path beyond the part of the path it as 
 a resource is registered under (it adds a '/' to the end of self.path if self.path[-1] != '/' by the way) and tries to
 upload the file under the directory input on initiation with that relative address. If it finds it, it sends it 
