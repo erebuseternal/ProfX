@@ -1,0 +1,24 @@
+def connectionLost(self, reason):
+      # the reactor has to go in here because if I call the reactor within a method
+      # that is part of calling sendResponse, the response stuff doesn't go through.
+      # it's like methods need to stop and a new event register before the
+      # lines register in the buffer. So if I call this code here in an event
+      # driven method we are all good.
+      # all of this is a bit wack. I'm going to want to look at this more
+      # closely in the future.
+      reactor.stop()
+
+So I figured out why I had to have that stupid sendLine('a') in connectionMade.
+curl and other browsers only show content, not the headers. Therefore it looks
+to see if the first line is a response line, if it is, it keeps chugging along,
+until it finds the gap and then the body, and then it sends that. But it also
+needs Content-Length header to tell it how much body there is. When I wrote out
+the lines as I received them, the first line was of course a request line, not
+a status line, so curl assumed I was sending a body directly. Therefore if
+I had that, or the 'a' to begin with, it would be just fine. Otherwise, it wouldn't
+send anything, cause I didn't have Content-Length header or I just had headers.
+That's all. So when you set body now, the Content-Length header is automatically
+set.
+
+Also note that you have to append a 404 Not Found html message if you want anyone
+to see anything. 
