@@ -17,11 +17,11 @@ We start with our protocol, called a Switch
 
 from twisted.protocols.basic import LineReceiver
 from twisted.internet import threads
-from httpmessage import *
 from copy import deepcopy
 import re
 
-from httpresource import ServerResource
+from .httpmessage import *
+from .httpresource import ServerResource
 
 """
 The switch class

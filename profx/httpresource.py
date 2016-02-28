@@ -1,4 +1,4 @@
-from httpmessage import *
+from .httpmessage import *
 
 """
 This is the base class for a resource and I will place resource implementations
