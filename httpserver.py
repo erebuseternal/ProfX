@@ -2,7 +2,7 @@
 
 """
 This contains the protocol and factory for our resource based http server.
-The idea is this. You register resource adress tuples with your server factory.
+The idea is this. You register resource, address tuples with your server factory.
 resources take in a request object and spit out a response object. The server
 protocol is then created for each connection, creates a request object (catching
 a server error if there is one), and then finds the closest resource to the requested
@@ -21,71 +21,11 @@ from httpmessage import *
 from copy import deepcopy
 import re
 
+from httpresource import ServerResource
+
 """
-A server resource must have a CreateResponse method which takes a request
-and returns a response object. The server switches will call CreateResponse
-on the Resource that matches the url found in the request. Just look at the
-Switch Class.
+The switch class
 """
-
-# this is the base class, and it just echos the request object
-# it should also have a path attribute, which specifies the path
-# it is set to be a resource under
-class ServerResource:
-
-    def SetPath(self, path):
-        checkType(path, str)
-        self.path = path
-
-    def CreateResponse(self, request):
-        # this request will be a request object
-        # this method needs to deal with this request object and return
-        # a response. I am going to make this basic class just echo
-        response = Response()
-        response.version = request.version
-        response.status = Status(200)
-        response.headers = request.headers
-        response.header_names = request.header_names
-        response.has_body = request.has_body
-        response.body = request.body
-        return response
-
-# this is a resource that serves
-class Directory(ServerResource):
-
-    def __init__(self, directory):
-        # directory is the directory from which it will serve things in the
-        # request
-        if directory[-1] != '/':
-            directory = directory + '/'
-        self.directory = directory
-
-    def CreateResponse(self, request):
-        # first we find the part of the url after the path this resource
-        # was set under
-        if self.path[-1] != '/':
-            self.path = self.path + '/'
-        re_expression = re.compile(self.path)
-        match = re.search(re_expression, request.url.path)
-        index_of_rest = match.end()
-        path = request.url.path[index_of_rest:]
-        try:
-            file = open(self.directory + path, 'r')
-        except:
-            # in this case we need to send a 404
-            response = Response()
-            response.SetVersion(Version(1.1))
-            response.SetStatus(Status(404))
-            response.SetBody('<p>404 Not Found<p>')
-            return response
-        # okay so we got the file, so now to send it
-        body = file.read()
-        response = Response()
-        response.SetVersion(Version(1.1))
-        response.SetStatus(Status(200))
-        response.SetBody(body)  # set body adds the appropriate headers for us
-        return response
-
 
 class Switch(LineReceiver):
 
@@ -115,10 +55,8 @@ class Switch(LineReceiver):
                 response.SetBody('<p>404 %s</p>' % Status(404).message)
             else:
                 try:
-                    home_directory = self.factory.home_directory
                     file_address = self.factory.error_pages[404]
-                    print(home_directory + file_address)
-                    file = open(home_directory + file_address, 'r')
+                    file = open(file_address, 'r')
                     body = file.read()
                     response.SetBody(body)
                 except:
@@ -145,9 +83,8 @@ class Switch(LineReceiver):
             response.SetBody('<p>500 %s</p>' % Status(500).message)
         else:
             try:
-                home_directory = self.factory.home_directory
                 file_address = self.factory.error_pages[500]
-                file = open(home_directory + file_address, 'r')
+                file = open(file_address, 'r')
                 body = file.read()
                 response.SetBody(body)
             except:
@@ -212,18 +149,13 @@ class Switch(LineReceiver):
 
 from twisted.internet.protocol import ServerFactory
 
-
 class SwitchFactory(ServerFactory):
 
-    def __init__(self, home_directory=''):
+    def __init__(self):
         self.resources = {}
         self.error_pages = {}   # the keys will be error codes and the values will
                                 # be a file reference to the file containing the html
                                 # you wish to display
-        if home_directory:
-            if home_directory[-1] != '/':
-                home_directory = home_directory + '/'
-            self.home_directory = home_directory
 
     def AddErrorPage(self, code, page_address):
         checkType(code, int)

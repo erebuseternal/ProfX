@@ -42,7 +42,7 @@ DONE
 
 class HTTPComponent:
     """
-    This class embodies the idea that you shouldbe able to parse
+    This class embodies the idea that you should be able to parse
     a line that comes from an http message that corresponds to this
     kind of object and setup the object from that line. That you should
     be able to write out a line from this object in the form that it
@@ -534,6 +534,8 @@ class HTTPMessage:
             # we have to check for the blank line before the body
             if line == '':
                 self.position = 'BODY'
+                # note that we just set things up for the body to
+                # be absorbed but don't parse it out here (cause its not a line)
             else:
                 self.parseHeaderLine(line)
 
@@ -549,6 +551,7 @@ class HTTPMessage:
         # now we create the empty line
         yield ''
         # and we finally return None to say this is finished
+        # note that we do not write out the body here
         yield None
 
     def WriteLine(self):
