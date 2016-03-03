@@ -221,7 +221,9 @@ SERVER PROTOCOL
 The server protocol is quite simple. But I am just going to go over it so you
 can better understand how your server should act.
 
-Simply put a protocol deals with a single connection. It first reads the
+Simply put a protocol deals with a single connection. (Therefore every time 
+someone connects to your server, one of these is generated to handle
+the connection).It first reads the
 request message and parses it into a request object. Then it reads the url
 path and then finds the best match in the paths you have registered with your
 server. If nothing is found it returns a 404 message (more on that in a moment)

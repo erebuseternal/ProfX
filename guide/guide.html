@@ -1,0 +1,396 @@
+<html>
+<head>
+  <link rel="stylesheet" type="text/css" href="style/guide.css" />
+  <title>A Guide to profx</title>
+</head>
+<body>
+  <div class="section">
+    <h1>Overview</h1>
+    <h3><code>profx</code>: In a Few Words</h3>
+    <p>
+      <code>profx</code> is quite simply a series of classes designed to make building http
+      servers incredibly simple. And the way it does this is by providing you with
+      a few central components: a http request object, a http response object, a
+      http resource (more on that in a second), and then a server protocol and factory.
+      These objects in and of themselves are powerful, but their real power (in my
+      unbiased opinion) is how they fit together.
+    </p>
+    <p>
+      In <code>profx</code> everything that you do centers around implementing resources.
+      A resource is a special class which gets sent http request objects from your
+      server and generates an http response object. Your server can have one or many
+      of these resources and each resource is added to your server factory with a simple
+      method. When you add a resource, you also supply a path at the same time. This
+      path is very important. Here's why. Every time your server gets a request from some client
+      it will parse out the url's path.  It will then look through the paths that
+      you have entered with each resource and find the path that best matches (if
+      there is one), where a match is better if it is more specific. For example
+      if we have the url path <code>/boston/docs/page.html</code> and we have
+      resource 1 attached to the path <code>/boston/</code>, resource 2 attached to
+      the path <code>/boston/docs/</code>, and resource 3 attached to the path
+      <code>/newyork/</code>, then resources 1 and 2 will both match (3 won't)
+      but resource 2 will be chosen because its path is more specific. If
+      resource 2 had been attached to the path <code>/boston/images/</code> it
+      wouldn't have matched at all and so resource 1 would have been chosen.
+    </p>
+    <p>
+      In this way <code>profx</code> allows you to create resources which create
+      responses however you want and attaches them to specific url paths, therefore
+      holding true to the nature of HTTP.
+    </p>
+    <p>
+      Now, for anyone who is familiar with <code>twisted</code> you know that there
+      is a resource based server factory and resource classes in twisted already.
+      So why have I done all of this? This brings us to the other strength of
+      <code>profx</code>. With <code>profx</code>, unlike <code>twisted</code>'s
+      version of the same thing, within the resource class you have complete
+      and easy access to the entire request that you are now responding too.
+      This means you can look at things like cookies (which is actually the main
+      reason I wrote all this stuff).
+    </p>
+    <p>
+      So <code>profx</code> is a resource based server that gives you complete and
+      easy access to all parts of the requests you handle while also taking advantage
+      of the power <code>twisted</code>.
+    </p>
+    <p>
+      So now that we have an overview of <code>profx</code>, let's look at the details.
+      We will start with the message objects, the go to the resource class, and finally
+      look at the server protocol and factory.
+    </p>
+  </div>
+  <div class="section">
+    <h1>Message Objects</h1>
+    <p>
+      First of all, there is a lot more to the message objects than I am going
+      to go through here. What I am going to tell you is how <i>you</i> can
+      read request objects and how <i>you</i> can create response objects. But
+      there is a lot more to these objects, all of which aids the server in handling
+      them, turning them into real http messages, and reading in requests.
+    </p>
+    <h3>Reading Requests</h3>
+    <p>
+      So the first thing you are going to need to know when writing up you resources
+      is how to read http request objects (which I am just going to refer to as
+      requests from now on).
+    </p>
+    <p>
+      In short to each request there are a number of attributes, each which holds
+      an object representing the particular piece of the request. The attributes
+      you'll want to access are the following ones:
+    </p>
+    <ul>
+      <li><code>version</code></li>
+      <li><code>headers</code></li>
+      <li><code>header_names</code></li>
+      <li><code>body</code></li>
+      <li><code>has_body</code></li>
+      <li><code>url</code></li>
+      <li><code>method</code></li>
+    </ul>
+    <p>
+      Let's go through each of these in turn.
+    </p>
+    <h4><code>version</code></h4>
+    <p>
+      The <code>version</code> attribute returns a <code>Version</code> object.
+    </p>
+    <p>
+      What do you need to know about this object? You can access the version number
+      at the <code>number</code> attribute of any one of these objects. That and
+      the default is 1.1.
+    </p>
+    <h4><code>headers</code></h4>
+    <p>
+      The <code>headers</code> attribute returns a list of <code>Header</code> objects.
+    </p>
+    <p>
+      Each of these <code>Header</code> objects has an attribute <code>name</code>
+      which is the name of the particular header, and an attribute <code>values</code>
+      which is a list containing all of the values that header had in the request
+      message (even if it was just one).
+    </p>
+    <h4><code>header_names</code></h4>
+    <p>
+      The <code>header_names</code> attribute returns a list containing all of the
+      names of the headers in your request object. This is useful for quickly
+      check to see if a particular header is in headers.
+    </p>
+    <h4><code>body</code></h4>
+    <p>
+      The <code>body</code> attribute returns a the body of your request message
+      if there was one and '' if not.
+    </p>
+    <h4><code>has_body</code></h4>
+    <p>
+      The <code>has_body</code> attribute is simply a boolean that lets you know
+      if the request has a body.
+    </p>
+    <h4><code>url</code></h4>
+    <p>
+      The <code>url</code> attribute has a <code>Url</code> object attached to it.
+    </p>
+    <p>
+      The url object has a series of attributes all corresponding to a part of
+      the request url. Each of the following named things is an attribute of the url:
+    </p>
+    <p class="code">
+      <code>[scheme:][[//][username:password@]host[:port]][path][?query][#fragment]
+      </code>
+    </p>
+    <p>
+      So for example you can access the path using <code>Url.path</code>. All of these
+      pieces are by default <code>None</code> if not specified by the request.
+    </p>
+    <h4><code>method</code></h4>
+    <p>
+      The <code>method</code> attribute has a <code>Method</code> object attached to
+      it.
+    </p>
+    <p>
+      This object has a <code>method</code> attribute which holds the method name
+      in string form. This name will be all caps.
+    </p>
+    <p>
+      And with that you can access all parts of the request you could every want!
+    </p>
+    <h3>Creating Responses</h3>
+    <p>
+      First I should note that with the exception of the <code>url</code> and the
+      <code>method</code> attributes, all of the above attributes are available to
+      you in the response object. <code>version</code> defaults to a <code>Version</code>
+      object with number 1.1, <code>headers</code> and <code>header_names</code> default
+      to empty lists, <code>body</code> defaults to an empty string, and <code>has_body</code>
+      defaults to <code>False</code>. <b>Only use these attributes to check what you have
+      already done, don't use them to set things!</b>
+    </p>
+    <p>
+      To create a response object you first must initialize a <code>profx.httpmessage.Response</code>
+      object. The constructor for this object takes no inputs.
+    </p>
+    <p>
+      On initialization the response object will have a <code>Status</code> object
+      assigned to it with a status code of 200. Don't worry, you can change this if you
+      want.
+    </p>
+    <p>
+      Now that you have initialized the object you are going to want to set the response's
+      various attributes. You can do this with the following methods (all of which
+      are attached to the response object).
+    </p>
+    <h4><code>SetStatus</code></h4>
+    <p>
+      You can input a <code>Status</code> object into <code>SetStatus</code> to set
+      the status code and message of your response. A <code>profx.httpmessage.Status</code> object is
+      initialized with a number as input. This number is your status' code. Note
+      that you do not provide the message; this will be done automatically for you.
+    </p>
+    <h4><code>SetVersion</code></h4>
+    <p>
+      You can input a <code>Version</code> object into <code>SetVersion</code> to set
+      the version of your response message. A <code>profx.httpmessage.Version</code>
+      object is initialized with a float (of the form a.b) that is the version number
+      you want to use (default is 1.1).
+    </p>
+    <h4><code>AddHeader</code></h4>
+    <p>
+      You can input a <code>Header</code> object into <code>AddHeader</code> to
+      add the header to the list of headers.
+    </p>
+    <p>
+      A <code>profx.httpmessage.Header</code> object is initialized with a
+      name and an optional value. If you add the value it will be the first element
+      in your values list.
+    </p>
+    <p>
+      You can add an additional values with <code>SetValue</code> which just takes
+      your values as input.
+    </p>
+    <h4><code>SetBody</code></h4>
+    <p>
+      You can input a string into <code>SetBody</code> to add a body to your
+      response; note that this will automatically set <code>has_body</code> to
+      <code>True</code>.
+    </p>
+    <p>
+      And with that you can control everything in your response.
+    </p>
+    <p>
+      For testing purposes, if you want to see what you response looks like
+      in http message form, just call the <code>Write</code> method on your
+      response object (without any inputs)
+    </p>
+  </div>
+  <div class="section">
+    <h1>Resources</h1>
+    <p>
+      Now that we have an idea about how to deal with requests and responses we can
+      move onto resources. To reiterate, a resource is a special class which has
+      a method that takes in a request and produces a response. The special class we
+      are talking about is <code>profx.httpresource.ServerResource</code>: every
+      resource class you create <i>must</i> inherit from this class. When you
+      create such a resource class there is only one thing that you must do: instantiate
+      the <code>CreateResponse</code> method. This method takes self and a request
+      object as its two inputs and <i>must</i> return a response object. Finally
+      besides the attributes you set on the resource, and the attributes in the request
+      object, you can take of the <code>path</code> attribute on every resource.
+      This will be set to the path you couple with the resource when you register
+      the resource with your server.
+    </p>
+    <p>
+      So to summarize, a resource is class inheriting from <code>profx.httpresource.ServerResource</code>
+      in which you instantiate a <code>CreateResponse(self, request)</code> method
+      which <i>must</i> return a response object. Within this method, by default, you
+      have access to the request object and a <code>path</code> attribute containing the
+      path you registered the resource under.
+    </p>
+    <p>
+      Note that <code>ServerResource</code> does not have a special constructor defined
+      so you can define your own constructor for your own resource class.
+    </p>
+  </div>
+  <div class="section">
+    <h1>Server Protocol</h1>
+    <p>
+      The server protocol is quite simple. But I am just going to go over it so you
+      can better understand how your server should act.
+    </p>
+    <p>
+      Simply put a protocol deals with a single connection. (Therefore every time
+      someone connects to your server, one of these is generated to handle
+      the connection).It first reads the
+      request message and parses it into a request object. Then it reads the url
+      path and then finds the best match in the paths you have registered with your
+      server. If nothing is found it returns a 404 message (more on that in a moment)
+      but if something is found, it gets the resource attached to the path.
+    </p>
+    <p>
+      The next thing it does is rather important. Rather than calling the resource's
+      <code>CreateResponse</code> right there, it passes the method call (with the
+      request object to input) to a <code>twisted Deferred</code> generated by throwing
+      the method call to a new thread. This means that if you resource is expensive
+      (in terms of time) that it will not impact someone else's connection to your
+      server, unless you just have that many connections and then other difficulties
+      arise. (But I would suggest using a reverse proxy to solve this problem).
+    </p>
+    <p>
+      When <code>CreateResponse</code> does finally return, the server protocol will
+      be called on to send the message and close the connection.
+    </p>
+    <p>
+      If at any point there is some kind of error (for example you didn't return a
+      response) the server protocol will send a 500 message back to the client.
+    </p>
+    <p>
+      Finally, the server will by default use general (and really boring) 404 and
+      500 http body. If you want something more interesting you can register error
+      pages with the server factory, and the server protocol will use the ones for
+      404 and 500. (In fact these are the only ones that will be ever used, because,
+      as far as errors, the server protocol can only not find anything or throw an error)
+    </p>
+  </div>
+  <div class="section">
+    <h1>Server Factory</h1>
+    <p>
+      Phew! almost done. We have finally come to the server factory. This is where
+      everything comes together. The class that you will be instantiating is the
+      <code>profx.SwitchFactory</code>. Its constructor doesn't take any arguments
+      so that bit is easy. There are two things you can do to this factory before
+      sending it on its merry way: register a resource and add an error page.
+    </p>
+    <p>
+      To register a resource, take the instance of the resource class you want to register
+      and the path you want to register your resource under, and pass them, in
+      that order, into your factory's <code>RegisterResource</code> method. That's it!
+    </p>
+    <p>
+      Note thought that when you input a path, if it does not have a trailing /
+      the server factory will add it before registering the resource. This is
+      to keep things consistent and therefore easier.
+    </p>
+    <p>
+      To add an error page take the error code of the page (either 404 or 500)
+      and the path of the html page on your machine and pass them, in that order,
+      to your factory's <code>AddErrorPage</code> method.
+    </p>
+    <p>
+      With those two pieces you can completely configure your server.
+    </p>
+  </div>
+  <div class="section">
+    <h1>Summary</h1>
+    <p>
+      Okay, so let's summarize all of that. To use <code>profx</code> you must
+      create your resource classes, instantiate the specific ones you want to
+      use, and register them with an instance of <code>profx.SwitchFactory</code>
+      under their especial paths, and then add some error pages for the server to use
+      if the default ones just aren't working for you. With that you have, packaged
+      in your factory, your whole server.
+    </p>
+  </div>
+  <div class="section">
+    <h1>Deployment</h1>
+    <p>
+      This is where my work ends, but it would be really dumb if I told you how to
+      create your server but never how to deploy it. When it comes to deployment
+      you essentially have two options. The <code>twisted reactor</code> or daemonization
+      using <code>twistd</code>.
+    </p>
+    <h3>The Reactor</h3>
+    <p>
+      To use the reactor simply use the following lines of code:
+    </p>
+    <p class="code">
+      <code>
+        from twisted.internet import reactor</br>
+        reactor.listenTCP([port#], factory)</br>
+        reactor.run()
+      </code>
+    </p>
+    <p>
+      where [port#] should be replaced with the port you want your server to listen
+      for connections on (usually 80 for http servers)
+    </p>
+    <p>
+      The you can run the thing by just running your code like any normal python script.
+    </p>
+    <h3>Daemonization</h3>
+    <p>
+      To daemonize your server (which I greatly suggest look to <code>twisted</code>'s
+      documentation for why) put the following lines in a file with a .tac extension.
+    </p>
+    <p class="code">
+      <code>
+        from twisted.application import internet, service</br>
+        application = service.Application('[name of your application]')</br>
+        staticService = internet.TCPServer([port#], factory)</br>
+        staticService.setServiceParent(application)
+      </code>
+    </p>
+    <p>
+      where [port#] should be replaced with the port you want your server to listen
+      for connections on (usually 80 for http servers), and [name of your application]
+      is just a string you want to use as the name for your application.
+    </p>
+    <p>
+      If this file was named server.tac then to run the server you would run:
+    </p>
+    <p class="code">
+      <code>
+        twistd -y server.tac
+      </code>
+    </p>
+    <p>
+      This will generate a pid file in the same directry as server.tac, which
+      has the pid of your server application. This is insanely useful for killing
+      your application cleanly.
+    </p>
+    <p>
+      Congrats! That is profx.
+    </p>
+  </div>
+  <footer>
+    <p>Copyright &#9400; 2016 by Marcel Gietzmann-Sanders</p>
+  </footer>
+</body>
+</html>
