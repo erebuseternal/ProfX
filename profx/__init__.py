@@ -16,12 +16,12 @@ We start with our protocol, called a Switch
 """
 
 from twisted.protocols.basic import LineReceiver
-from twisted.internet import threads
+from twisted.internet import threads, defer
 from copy import deepcopy
 import re
 
-from .httpmessage import *
-from .httpresource import ServerResource
+from httpmessage import *
+from httpresource import ServerResource
 
 """
 The switch class
@@ -37,6 +37,18 @@ class Switch(LineReceiver):
 
     def end(self, input):
         self.transport.loseConnection()
+
+    def createResponseInThread(self, resource):
+        print('creating a response in thread')
+        # so now we will create
+        # a defered where it is instantiated and then CreateResponse is called
+        # passing in the request
+        # by defering to a thread, we can allow our resource to call expensive
+        # resources without having to worry about the rest of the server
+        deferred = threads.deferToThread(resource.CreateResponse, self.request)
+        print('deferred')
+        # the returned response will be send here
+        deferred.addCallbacks(self.sendResponse, self.sendServerError)
 
     def startResource(self):
         # this method finds the best resource given the path in the url of the
@@ -63,18 +75,36 @@ class Switch(LineReceiver):
                     response.SetBody('<p>404 %s</p>' % Status(404).message)
             self.sendResponse(response)
             return
-        # we now know that we have a resource class instance so now we will create
-        # a defered where it is instantiated and then CreateResponse is called
-        # passing in the request
-        # by defering to a thread, we can allow our resource to call expensive
-        # resources without having to worry about the rest of the server
-        defered = threads.deferToThread(resource.CreateResponse, self.request)
-        # the returned response will be send here
-        defered.addCallbacks(self.sendResponse, self.sendServerError)
+        # we now know that we have a resource class instance
+        # first we must check to see if MAX_THREADS has already been met
+        print(self)
+        if not self.factory.thread_count >= self.factory.MAX_THREADS:
+            # first we incrememnt the thread count
+            self.factory.thread_count += 1
+            try:
+                print('trying to open new thread')
+                self.createResponseInThread(resource)
+            except:
+                print('open new thread failed')
+                # if the above actions fail we want to make sure we don't make
+                # our factory think it is using a thread it doesn't have.
+                self.factory.thread_count -= 1
+        else:
+            print('creating a defer for defers')
+            # in this case all of the threads we are allowed to use have been
+            # used up, so we have to create a deferred that can be called later
+            # when a thread frees up.
+            deferred = defer.Deferred()
+            deferred.addCallbacks(self.createResponseInThread, self.sendServerError)
+            # now we add this pair to our defers
+            self.factory.defers.append((deferred, resource))
 
     def sendServerError(self, failure):
+        print('sending error %s' % failure)
         # this method is called if an error is thrown by a resource's CreateResponse
         # it will send a server error response
+        # first we free up a thread (that is obviously no longer being used)
+        self.factory.thread_count -= 1
         response = Response()
         response.SetVersion(Version(1.1))
         response.SetStatus(Status(500))
@@ -93,14 +123,17 @@ class Switch(LineReceiver):
 
     def sendResponse(self, response):
         # check that this is a Response
+        print('going for a send response')
         try:
             checkType(response, Response)
         except:
             # we send a server error response (we have to input None because
             # there is an input for a failure due to this method also being
             # used as a errback)
+            print('hello there')
             self.sendServerError(None)
             return
+        # now we can send our message
         # first we send the line parts of the response
         line = response.WriteLine()
         while line or line == '':
@@ -110,6 +143,19 @@ class Switch(LineReceiver):
         if response.has_body:
             # we write out the body
             self.transport.write(response.body)
+        # now we have to check if there are deferreds waiting to be triggered
+        # or if we can actually free up a thread
+        if len(self.factory.defers) > 0:
+            print('triggering a defer from defers')
+            # in this case we need to trigger a defer and remove it from the list
+            deferred, resource = self.factory.defers.pop(0)
+            # now we trigger the deferred
+            deferred.callback(resource)
+        else:
+            print('cleaning up thread')
+            # in this case we have freed up a thread and need to indicate that
+            self.factory.thread_count -= 1
+        print('losing connection')
         # now we are done and can loose the connection
         self.transport.loseConnection()
 
@@ -156,6 +202,9 @@ class SwitchFactory(ServerFactory):
         self.error_pages = {}   # the keys will be error codes and the values will
                                 # be a file reference to the file containing the html
                                 # you wish to display
+        self.MAX_THREADS = 25   # just a default value
+        self.defers = []        # to keep track of actions that are waiting to happen
+        self.thread_count = 0   # to let us know how many threads have been opened
 
     def AddErrorPage(self, code, page_address):
         checkType(code, int)
@@ -172,6 +221,10 @@ class SwitchFactory(ServerFactory):
         resource.SetPath(path)
         # now we register the resource under the path
         self.resources[path] = resource
+
+    def SetMaxThreads(self, number):
+        # simply sets MAX_THREADS
+        self.MAX_THREADS = number
 
     # we put this method here, because resources have to do with the factory
     def getResource(self, input_path):
