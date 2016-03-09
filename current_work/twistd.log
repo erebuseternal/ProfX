@@ -1,5 +1,0 @@
-2016-03-07 18:02:22-0500 [-] Log opened.
-2016-03-07 18:02:24-0500 [-] twistd 15.5.0 (/root/anaconda2/bin/python 2.7.10) starting up.
-2016-03-07 18:02:24-0500 [-] reactor class: twisted.internet.epollreactor.EPollReactor.
-2016-03-07 18:02:24-0500 [-] SwitchFactory starting on 80
-2016-03-07 18:02:24-0500 [-] Starting factory <__init__.SwitchFactory instance at 0x7feda592d638>
