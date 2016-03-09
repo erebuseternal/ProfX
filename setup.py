@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(name='profx',
-        version='0.1',
+        version='0.2',
         description='a resource based twisted server',
         url='http://github.com/erebuseternal/profx',
         author='erebuseternal',
